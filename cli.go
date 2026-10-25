@@ -12,22 +12,24 @@ import (
 )
 
 type Report struct {
-	APK      string          `json:"apk"`
-	Entries  int             `json:"entries"`
-	Seconds  float64         `json:"seconds"`
-	URLs     []Finding       `json:"urls"`
-	Findings []SecretFinding `json:"findings"`
+	APK       string          `json:"apk,omitempty"`
+	Directory string          `json:"directory,omitempty"`
+	Entries   int             `json:"entries"`
+	Seconds   float64         `json:"seconds"`
+	URLs      []Finding       `json:"urls"`
+	Findings  []SecretFinding `json:"findings"`
 }
 
 func run() error {
 	file := flag.String("f", "", "APK file to scan")
+	directory := flag.String("d", "", "already-decompiled app directory to scan recursively")
 	out := flag.String("o", "", "new output file (existing files are never overwritten)")
 	patterns := flag.String("p", "", "custom rules JSON (Go/RE2 regular expressions)")
 	urlsOnly := flag.Bool("urls-only", false, "extract URLs only, without secret rules")
 	asJSON := flag.Bool("json", false, "write JSON with source filenames")
 	flag.Parse()
-	if *file == "" || flag.NArg() != 0 {
-		return errors.New("usage: apk-url-hunter -f FILE.apk [-o OUTPUT] [--json] [--urls-only] [-p RULES.json]")
+	if (*file == "") == (*directory == "") || flag.NArg() != 0 {
+		return errors.New("usage: apk-url-hunter (-f FILE.apk | -d DIRECTORY) [-o OUTPUT] [--json] [--urls-only] [-p RULES.json]")
 	}
 	if *urlsOnly && *patterns != "" {
 		return errors.New("-p cannot be combined with --urls-only")
@@ -58,14 +60,26 @@ func run() error {
 		}
 	}()
 	start := time.Now()
-	urls, findings, entries, err := scan(*file, rules)
+	var urls []Finding
+	var findings []SecretFinding
+	var entries int
+	if *directory != "" {
+		urls, findings, entries, err = scanDirectory(*directory, *out, rules)
+	} else {
+		urls, findings, entries, err = scan(*file, rules)
+	}
 	if err != nil {
 		return err
 	}
 	if findings == nil {
 		findings = []SecretFinding{}
 	}
-	report := Report{filepath.Base(*file), entries, time.Since(start).Seconds(), urls, findings}
+	report := Report{Entries: entries, Seconds: time.Since(start).Seconds(), URLs: urls, Findings: findings}
+	if *directory != "" {
+		report.Directory = filepath.Base(filepath.Clean(*directory))
+	} else {
+		report.APK = filepath.Base(*file)
+	}
 	var data []byte
 	if *asJSON {
 		data, err = json.MarshalIndent(report, "", "  ")

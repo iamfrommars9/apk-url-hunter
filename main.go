@@ -23,6 +23,12 @@ type Finding struct {
 	Sources []string `json:"sources"`
 }
 
+type inputFile struct {
+	name string
+	size uint64
+	open func() (io.ReadCloser, error)
+}
+
 // shortcut: literal strings only; use a decompiler for URLs assembled at runtime.
 func textViews(data []byte) [][]byte {
 	data = bytes.ReplaceAll(data, []byte(`\/`), []byte(`/`))
@@ -79,19 +85,25 @@ func scan(path string, rules []rule) ([]Finding, []SecretFinding, int, error) {
 		return nil, nil, 0, err
 	}
 	defer archive.Close()
-	var total uint64
-	var files []*zip.File
+	var files []inputFile
 	for _, f := range archive.File {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		if f.UncompressedSize64 > maxEntry || f.UncompressedSize64 > maxTotal-total {
-			return nil, nil, 0, fmt.Errorf("APK exceeds decompression limit (128 MiB per entry, 1 GiB total): %s", f.Name)
-		}
-		total += f.UncompressedSize64
-		files = append(files, f)
+		files = append(files, inputFile{f.Name, f.UncompressedSize64, f.Open})
 	}
-	jobs := make(chan *zip.File)
+	return scanFiles(files, rules)
+}
+
+func scanFiles(files []inputFile, rules []rule) ([]Finding, []SecretFinding, int, error) {
+	var total uint64
+	for _, file := range files {
+		if file.size > maxEntry || file.size > maxTotal-total {
+			return nil, nil, 0, fmt.Errorf("input exceeds size limit (128 MiB per file, 1 GiB total): %s", file.name)
+		}
+		total += file.size
+	}
+	jobs := make(chan inputFile)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	found := make(map[string]map[string]bool)
@@ -105,20 +117,20 @@ func scan(path string, rules []rule) ([]Finding, []SecretFinding, int, error) {
 				urls, matches, err := scanEntry(f, rules)
 				mu.Lock()
 				if err != nil {
-					failures = append(failures, fmt.Errorf("%s: %w", f.Name, err))
+					failures = append(failures, fmt.Errorf("%s: %w", f.name, err))
 				}
 				for _, u := range urls {
 					if found[u] == nil {
 						found[u] = make(map[string]bool)
 					}
-					found[u][f.Name] = true
+					found[u][f.name] = true
 				}
 				for _, match := range matches {
 					key := [2]string{match.Name, match.Value}
 					if secrets[key] == nil {
 						secrets[key] = make(map[string]bool)
 					}
-					secrets[key][f.Name] = true
+					secrets[key][f.name] = true
 				}
 				mu.Unlock()
 			}
@@ -160,8 +172,8 @@ func scan(path string, rules []rule) ([]Finding, []SecretFinding, int, error) {
 	return results, secretResults, len(files), nil
 }
 
-func scanEntry(f *zip.File, rules []rule) ([]string, []SecretFinding, error) {
-	r, err := f.Open()
+func scanEntry(f inputFile, rules []rule) ([]string, []SecretFinding, error) {
+	r, err := f.open()
 	if err != nil {
 		return nil, nil, err
 	}

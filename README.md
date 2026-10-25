@@ -1,7 +1,8 @@
 # APK URL Hunter
 
-A standalone Go tool for extracting URLs and potential secrets from Android APKs.
-Scans ZIP entries in parallel and records the source entry for every match.
+A standalone Go tool for extracting URLs and potential secrets from Android APKs
+or already-decompiled app folders. Scans files in parallel and records the source
+path for every match.
 No Python, Java, JADX, APK installation, or network access is required.
 
 The pattern rules are derived from [APKLeaks](https://github.com/dwisiswant0/apkleaks)
@@ -52,9 +53,24 @@ An optional named capture `(?P<match>...)` returns only that capture.
 The bundled JWT rule additionally requires a letter and a digit, matching its
 upstream validation. All matches, rather than only the first per line, are kept.
 
+Scan an already-decompiled app folder (JADX, Apktool, or another tool):
+
+```sh
+./apk-url-hunter -d "path/to/decompiled app" --json -o folder-findings.json
+./apk-url-hunter -d "path/to/decompiled app" --urls-only --json -o folder-urls.json
+```
+
+Choose exactly one of `-f` and `-d`. Folder mode recursively scans regular files
+using the same rules and worker pool as APK mode. Sources are forward-slash paths
+relative to the input directory. Symlinks, directory junctions, and special files
+are skipped; a symlink/junction cannot be used as the input root. Read errors fail
+the scan. Keep the folder unchanged while scanning. The current output file is
+excluded automatically, including when it is created inside the input folder.
+
 | Option | Meaning |
 | --- | --- |
-| `-f` | Input APK file (required) |
+| `-f` | Input APK file; mutually exclusive with `-d` |
+| `-d` | Already-decompiled app directory; mutually exclusive with `-f` |
 | `-o` | New output file; existing files are never overwritten |
 | `--json` | JSON output; otherwise human-readable text |
 | `--urls-only` | Skip all secret/pattern rules |
@@ -64,8 +80,9 @@ Default output is `apk-url-hunter-results.txt` or `apk-url-hunter-results.json`.
 Only counts, timing, and the output path are printed to the terminal; matched
 values stay in the output file. JSON contains:
 
-- `apk`: APK filename, without its local directory.
-- `entries`: number of scanned archive entries.
+- `apk`: APK filename, present in APK mode only.
+- `directory`: input folder name, present in folder mode only.
+- `entries`: number of scanned archive entries or regular files.
 - `seconds`: elapsed scanning time.
 - `urls`: unique URLs with their `sources` entry names.
 - `findings`: unique `name`/`value` pattern matches with `sources` entry names.
@@ -89,7 +106,7 @@ The tool never contacts the discovered endpoints or validates credentials.
 Keep output files private; they may contain real secrets or personal data.
 
 At most eight workers run concurrently. Inputs exceeding 128 MiB per expanded
-entry or 1 GiB expanded total are rejected. ZIP integrity errors fail the scan;
+entry/file or 1 GiB expanded total are rejected. ZIP integrity errors fail the scan;
 archive entries are never extracted as filesystem paths. Failed scans remove
 only the new output file created by that invocation.
 
