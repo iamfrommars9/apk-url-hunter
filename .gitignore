@@ -1,0 +1,10 @@
+*.exe
+*.apk
+*.xapk
+*.apks
+*.log
+apk-url-hunter-results.*
+results/
+dist/
+.env
+coverage.out

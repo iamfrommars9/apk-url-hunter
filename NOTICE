@@ -1,0 +1,10 @@
+APK URL Hunter is a Go implementation of APK URL and pattern extraction.
+
+The bundled rules/regexes.json is derived from APKLeaks by dwisiswant0:
+https://github.com/dwisiswant0/apkleaks
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Changes: Basic_Auth_Credentials and Mailto use named captures instead of Python
+lookbehind. JSON_Web_Token uses a Go-compatible expression with letter/digit
+validation in Go. Scanning operates directly on APK entries, rather than JADX
+decompiler output. No affiliation or endorsement by upstream is implied.
