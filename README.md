@@ -87,6 +87,39 @@ values stay in the output file. JSON contains:
 - `urls`: unique URLs with their `sources` entry names.
 - `findings`: unique `name`/`value` pattern matches with `sources` entry names.
 
+## Named API keys, tokens, salts, and client IDs
+
+Normal scans also find values assigned to sensitive names, even if the values
+do not resemble a provider-specific token. This includes names such as
+`city_locator_secret_key`, `loyalty_secret_key`, `slots_list_api_key`,
+`salt_search_api_token`, `fingerprint_salt_key`, `truecaller_salt_key`,
+`facebook_client_token`, `clientID`, and `google_api_key`.
+
+Supported text forms include Android `<string name="...">` resources (including
+XML entities and CDATA), JSON/YAML quoted values, Java/JavaScript quoted string
+assignments, Smali static string fields, and unquoted properties/environment
+assignments. Values may contain punctuation; there is no minimum entropy or
+provider-prefix requirement. Empty values and resource references are ignored.
+The original key name is returned as `name`, the full literal as `value`, and a
+heuristic category as `type`. Source tracking and deduplication work in APK and
+folder modes. `--urls-only` disables this detection; `-p` replaces provider
+regex rules but leaves name-based detection enabled.
+
+```xml
+<resources>
+  <string name="loyalty_secret_key">demo-secret-value</string>
+  <string name="clientID">demo-public-client-id</string>
+</resources>
+```
+
+Types are inferred from names, not cryptographic validation. Client IDs may be
+public by design, salts alone are not authentication secrets, and API keys may
+be restricted. The scanner does not claim that these values work or enable any
+specific abuse. It does not associate separate name/value entries in compiled
+`resources.arsc` or reconstruct dynamically assigned values; decompiled XML is
+the preferred input for named Android resources. Your own scan values are never
+needed in rule files or commits.
+
 Results are sorted and deduplicated. Empty results are valid and still saved.
 
 ## Coverage and limits

@@ -93,7 +93,7 @@ func run() error {
 			fmt.Fprintf(&text, "%s\n  sources: %s\n", url.URL, strings.Join(url.Sources, ", "))
 		}
 		for _, finding := range findings {
-			fmt.Fprintf(&text, "\n[%s]\n%s\n  sources: %s\n", finding.Name, finding.Value, strings.Join(finding.Sources, ", "))
+			fmt.Fprintf(&text, "\n[%s]\n%s\n  type: %s\n  sources: %s\n", finding.Name, finding.Value, finding.Type, strings.Join(finding.Sources, ", "))
 		}
 		data = []byte(text.String())
 	}

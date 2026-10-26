@@ -16,6 +16,7 @@ var defaultRules []byte
 type SecretFinding struct {
 	Name    string   `json:"name"`
 	Value   string   `json:"value"`
+	Type    string   `json:"type,omitempty"`
 	Sources []string `json:"sources"`
 }
 
@@ -98,6 +99,13 @@ func findSecrets(views [][]byte, rules []rule) []SecretFinding {
 					results = append(results, SecretFinding{Name: rule.name, Value: value})
 				}
 			}
+		}
+	}
+	for _, finding := range findNamedCredentials(views) {
+		key := [2]string{finding.Name, finding.Value}
+		if !seen[key] {
+			seen[key] = true
+			results = append(results, finding)
 		}
 	}
 	return results

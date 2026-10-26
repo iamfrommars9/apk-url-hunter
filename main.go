@@ -161,7 +161,7 @@ func scanFiles(files []inputFile, rules []rule) ([]Finding, []SecretFinding, int
 			sources = append(sources, path)
 		}
 		sort.Strings(sources)
-		secretResults = append(secretResults, SecretFinding{key[0], key[1], sources})
+		secretResults = append(secretResults, SecretFinding{Name: key[0], Value: key[1], Type: credentialType(key[0]), Sources: sources})
 	}
 	sort.Slice(secretResults, func(i, j int) bool {
 		if secretResults[i].Name == secretResults[j].Name {
